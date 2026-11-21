@@ -33,14 +33,15 @@ class Entidad(ABC):
         if not identificador or not str(identificador).strip():
             raise DatoInvalidoError("El identificador es obligatorio.")
         self._identificador = str(identificador).strip()
-        
-        @property
-        def identificador(self):
-            return self._identificador
-        
-        @abstractmethod
-        def descripcion(self):
-            pass
+
+    # CORRECCIÓN: estos métodos estaban dentro de __init__; ahora son de la clase
+    @property
+    def identificador(self):
+        return self._identificador
+
+    @abstractmethod
+    def descripcion(self):
+        pass
         
 #Cliente#
 class Cliente(Entidad):
@@ -63,21 +64,22 @@ class Cliente(Entidad):
         self._nombre = nombre
         self._correo = correo
         self._telefono = telefono
-        
-        @property
-        def nombre(self):
-            return self._nombre
 
-        @property
-        def correo(self):
-            return self._correo
+    # CORRECCIÓN: propiedades y descripcion estaban dentro de __init__
+    @property
+    def nombre(self):
+        return self._nombre
 
-        @property
-        def telefono(self):
-            return self._telefono
-        
-        def descripcion(self):
-            return f"Cliente: {self._nombre}, Correo: {self._correo}, Teléfono: {self._telefono}"
+    @property
+    def correo(self):
+        return self._correo
+
+    @property
+    def telefono(self):
+        return self._telefono
+
+    def descripcion(self):
+        return f"Cliente: {self._nombre}, Correo: {self._correo}, Teléfono: {self._telefono}"
         
 #Servicios#
 
@@ -95,35 +97,44 @@ class Servicio(Entidad,ABC):
         self._nombre = nombre
         self._precio = float(precio)
         self._disponible = True  # Inicialmente, el servicio está disponible
-        
-        @property
-        def nombre(self):
-            return self._nombre
-        
-        @property
-        def precio(self):
-            return self._precio
 
-        @property
-        def disponible(self):
-            return self._disponible
+    # CORRECCIÓN: todo lo siguiente estaba dentro de __init__; ahora son métodos de la clase
+    @property
+    def nombre(self):
+        return self._nombre
         
-        def validar_disponibilidad(self):
-            if not self._disponible:
-                raise ServicioNoDisponibleError(f"El servicio '{self._nombre}' no está disponible.")
-            
-        @abstractmethod
-        def calcular_costo(self,duracion):  
-            pass
+    @property
+    def precio(self):
+        return self._precio
+
+    @property
+    def disponible(self):
+        return self._disponible
+
+    # AGREGADO: permite habilitar o deshabilitar el servicio
+    def cambiar_disponibilidad(self, disponible):
+        if not isinstance(disponible, bool):
+            raise DatoInvalidoError("La disponibilidad debe ser True o False.")
+        self._disponible = disponible
+        logging.info(f"Disponibilidad del servicio {self._identificador} cambiada a {disponible}.")
         
-        def costo_con_descuento(self, duracion, descuento=0, impuesto=0):
-            costo_base = self.calcular_costo(duracion)
-            if not (0 <= descuento <= 100):
-                raise DatoInvalidoError("El descuento debe estar entre 0 y 100.")
-            costo_final = costo_base * (1 - descuento / 100)
-            if not (0 <= impuesto <= 100):
-                raise DatoInvalidoError("El impuesto debe estar entre 0 y 100.")
-            return costo_final
+    def validar_disponibilidad(self):
+        if not self._disponible:
+            raise ServicioNoDisponibleError(f"El servicio '{self._nombre}' no está disponible.")
+        
+    @abstractmethod
+    def calcular_costo(self,duracion):  
+        pass
+        
+    def costo_con_descuento(self, duracion, descuento=0, impuesto=0):
+        costo_base = self.calcular_costo(duracion)
+        if not (0 <= descuento <= 100):
+            raise DatoInvalidoError("El descuento debe estar entre 0 y 100.")
+        if not (0 <= impuesto <= 100):
+            raise DatoInvalidoError("El impuesto debe estar entre 0 y 100.")
+        # CORRECCIÓN: el impuesto se validaba pero no se sumaba al costo
+        costo_final = costo_base * (1 - descuento / 100) * (1 + impuesto / 100)
+        return round(costo_final, 2)
         
 class ReservaSala(Servicio):
     def __init__(self, identificador, nombre, precio, capacidad):
@@ -137,18 +148,21 @@ class ReservaSala(Servicio):
         return self._capacidad
     
     def calcular_costo(self, duracion):
-        if not isinstance(duracion, (int, float)) or isinstance(duracion, bool) or duracion < 0:
+        # CORRECCIÓN: "<= 0" (el mensaje dice "mayor a cero")
+        if not isinstance(duracion, (int, float)) or isinstance(duracion, bool) or duracion <= 0:
             raise DatoInvalidoError("La duración debe ser un número mayor a cero.")
         return round(self._precio * duracion, 2)
     
     def descripcion(self):
-        return (f"Reserva de Sala: {self._nombre}, Capacidad: {self._capacidad}, Precio por hora: ${self._precio_base:.2f}")
+        # CORRECCIÓN: el atributo se llama _precio (no _precio_base)
+        return (f"Reserva de Sala: {self._nombre}, Capacidad: {self._capacidad}, Precio por hora: ${self._precio:.2f}")
     
 class ReservaEquipo(Servicio):
     def __init__(self, identificador, nombre, precio, tipo_equipo):
         super().__init__(identificador, nombre, precio)
         tipo_equipo=str(tipo_equipo).strip()
-        if (not isinstance(tipo_equipo, int) or isinstance(tipo_equipo, bool)or tipo_equipo < 0):
+        # CORRECCIÓN: la validación pedía un número entero, por eso siempre fallaba
+        if not tipo_equipo:
             raise DatoInvalidoError("El tipo de equipo es obligatorio.")
         self._tipo_equipo = tipo_equipo
         
@@ -157,7 +171,7 @@ class ReservaEquipo(Servicio):
         return self._tipo_equipo
     
     def calcular_costo(self, duracion):
-        if not isinstance(duracion, (int, float)) or isinstance(duracion, bool) or duracion < 0:
+        if not isinstance(duracion, (int, float)) or isinstance(duracion, bool) or duracion <= 0:
             raise DatoInvalidoError("La duración debe ser un número mayor a cero.")
         return round(self._precio * duracion, 2)
     
@@ -177,57 +191,10 @@ class Asesoria(Servicio):
         return self._especialista
     
     def calcular_costo(self, duracion):
-        if not isinstance(duracion, (int, float)) or isinstance(duracion, bool) or duracion < 0:
+        if not isinstance(duracion, (int, float)) or isinstance(duracion, bool) or duracion <= 0:
             raise DatoInvalidoError("La duración debe ser un número mayor a cero.")
         return round(self._precio * duracion, 2)     
 
     
     def descripcion(self):
         return (f"Asesoría: {self._nombre}, Especialista: {self._especialista}, Precio por hora: ${self._precio:.2f}")
-        
-    
-    
-#Reservas#
-class Reserva:
-    ESTADOS = ["Pendiente", "Confirmada", "Cancelada", "Completada"]
-    def __init__(self, identificador, cliente, servicio, duracion, descuento=0, impuesto=0):
-        super().__init__(identificador)
-        if not isinstance(cliente, Cliente):
-            raise DatoInvalidoError("El cliente debe ser una instancia de la clase Cliente.")
-        self._cliente = cliente
-        
-        if not isinstance(servicio, Servicio):
-            raise DatoInvalidoError("El servicio debe ser una instancia de la clase Servicio.")
-        self._servicio = servicio
-        
-        if not isinstance(duracion, (dict, type(None))):
-            raise DatoInvalidoError("La duración debe ser un diccionario válido.")
-        self._duracion = dict(duracion or {})
-        self._descuento = descuento
-        self._impuesto = impuesto
-        self._estado = "Pendiente"
-        
-    @property
-    def estado(self):
-        return self._estado
-    def confirmar(self):
-        if self._estado != "Pendiente":
-            raise ReservaError("Solo se puede confirmar una reserva pendiente.")
-        self._estado = "Confirmada"
-        logging.info(f"Reserva {self._identificador} confirmada.")
-        self._servicio.validar_disponibilidad()
-        self._estado = "Confirmada"
-        logging.info(f"Reserva {self._identificador} confirmada.")
-        
-    def cancelar(self):
-        if self._estado in ["Cancelada", "Confirmada"]:
-            raise ReservaError(f"Solo se puede cancelar una reserva pendiente o confirmada{self._estado.lower()}.")
-        self._estado = "Cancelada"
-        logging.info(f"Reserva {self._identificador} cancelada.")
-        
-    def completar(self):
-        if self._estado != "Confirmada":
-            raise ReservaError("Solo se puede completar una reserva confirmada.")
-        total_costo = self._servicio.costo_con_descuento(self._duracion, self._descuento, self._impuesto)
-        self._estado = "Completada"
-        logging.info(f"Reserva {self._identificador} completada.")
